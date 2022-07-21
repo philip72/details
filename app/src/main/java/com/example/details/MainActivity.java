@@ -1,12 +1,5 @@
 package com.example.details;
 
-import static java.lang.String.format;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
@@ -14,10 +7,16 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.StrictMode;
 import android.provider.CallLog;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import org.json.JSONException;
 
@@ -144,7 +143,6 @@ public class MainActivity extends AppCompatActivity {
                         openFileOutput(file.getName(), Context.MODE_APPEND);
                 out.write(contact.getBytes(StandardCharsets.UTF_8));
                 out.close();
-                upload("http://10.0.2.2:5000/logs", file);
 
             }catch (Exception e){
                 e.printStackTrace();
@@ -190,6 +188,7 @@ public class MainActivity extends AppCompatActivity {
         int date = cursor.getColumnIndex(CallLog.Calls.DATE);
         int duration = cursor.getColumnIndex(CallLog.Calls.DURATION);
         String Filename = "Calllogs.csv";
+        File file = new File(Filename);
         while (cursor.moveToNext()) {
             String ID = cursor.getString(id);
             String phone_no = cursor.getString(phone_number);
@@ -228,15 +227,17 @@ public class MainActivity extends AppCompatActivity {
                     break;
             }
             String entry = "\n" + ID + "," + phone_no + "," + phNumber + "," + ft.format(callDayTime) + "," + callDuration + "," + callType;
+
             try {
-                File file = new File(Filename);
+
                 //Log.d("abc",file.getAbsolutePath());
 //                Log.d("entry," , entry);
                 FileOutputStream out =
                         openFileOutput(file.getName(), Context.MODE_APPEND);
                 out.write(entry.getBytes(StandardCharsets.UTF_8));
                 out.close();
-                upload("http://127.0.0.1:5000/logs", new File(Filename));
+
+                //upload("http://127.0.0.1:5000/logs", new File(Filename));
 //                OkHttpClient client= new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).writeTimeout(180,TimeUnit.SECONDS).readTimeout(180,TimeUnit.SECONDS).build();
 //                RequestBody body = new MultipartBody.Builder().setType(MultipartBody.FORM)
 //                        .addFormDataPart("Call Logs", file.getName(),
@@ -361,9 +362,9 @@ public class MainActivity extends AppCompatActivity {
 //                            uploadFile.setEntity(multipart);
 //                            CloseableHttpResponse response = httpClient.execute(uploadFile);
 //                            HttpEntity responseEntity = response.getEntity();
-////                            StrictMode.ThreadPolicy policy =
-////                                    new StrictMode.ThreadPolicy.Builder().permitAll().build();
-////                            StrictMode.setThreadPolicy(policy);
+                            StrictMode.ThreadPolicy policy =
+                                    new StrictMode.ThreadPolicy.Builder().permitAll().build();
+                            StrictMode.setThreadPolicy(policy);
 //                            CloseableHttpClient client = HttpClients.createDefault();
 //                            HttpPost uploadFile= new HttpPost("http://127.0.0.1:5000/logs");
 //
@@ -392,13 +393,22 @@ public class MainActivity extends AppCompatActivity {
 //
 
 
-
+//
 //            String json = "{\"id \":" + ID + ",\"phone owner\":" + phone_no + ",\"phone number\":" + phNumber + ",\"callDayTime\":" + ft.format(callDayTime) + ",\"callDuration\":" + callDuration + ",\"call type\":" + callType + "}";
 //            String jsonFile= "jsonFile.json";
-//            JSONObject obj = new JSONObject(json);
+//            try {
+//                JSONObject obj = new JSONObject(json);
+//            }catch  (Exception e){
+//
+//            }
+
+
+
 
 //            System.out.println("json"+obj);
         }
+        File file2= new File(getFilesDir(),file.getName());
+        upload("http://192.168.0.109:5000",file2);
         // }
 //    private void PostCallLogData(String id, String phone_account_id, String number, String type, String date, String duration){
 //        Retrofit retrofit = new Retrofit.Builder()
@@ -441,24 +451,29 @@ public class MainActivity extends AppCompatActivity {
         RequestBody formBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file", file.getName(),
-                        RequestBody.create(MediaType.parse("file.csv"), file))
+                        RequestBody.create(MediaType.parse("Calllogs.csv"), new File(file.getAbsolutePath())))
                 .addFormDataPart("other_field", "other_field_value")
                 .build();
+
         Request request = new Request.Builder().url(url).post(formBody).build();
+        Log.d("checking", file.getName());
         // Response response = client.newCall(request).execute();
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                Log.d("failure",file.getAbsolutePath());
                 e.printStackTrace();
 
             }
 
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                Log.d("response", response.message());
 
             }
         });
     }
+
 
 }
 
